@@ -17,7 +17,9 @@ except ImportError as exc:
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR = Path(__file__).parent.parent.parent / "wechat_qr_models"
+# Lưu model vào thư mục người dùng (vd: C:\Users\YourName\.qr_extractor\...) 
+# Tránh dùng Path(__file__) vì khi đóng gói thành exe, nó trỏ vào thư mục tạm và bị xoá khi tắt app
+MODELS_DIR = Path.home() / ".qr_extractor" / "wechat_qr_models"
 BASE_URL = "https://raw.githubusercontent.com/WeChatCV/opencv_3rdparty/wechat_qrcode/"
 
 FILES = ["detect.prototxt", "detect.caffemodel", "sr.prototxt", "sr.caffemodel"]

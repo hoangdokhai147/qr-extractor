@@ -17,8 +17,18 @@ from src.io.file_utils import get_image_files, get_targets
 from src.qrcode.scanner import QRScanner
 
 
+def get_resource_path(relative_path: str) -> Path:
+    """Get absolute path for resources"""
+    try:
+        base_path = Path(sys._MEIPASS)  # type: ignore
+    except AttributeError:
+        base_path = Path(__file__).resolve().parent
+
+    return base_path / relative_path
+
+
 APP_TITLE = "Pro QR Extractor"
-LOGO_PATH = Path(__file__).resolve().parent / "logo.png"
+LOGO_PATH = get_resource_path("static/logo.png")
 
 
 class QueueLogHandler(logging.Handler):
@@ -201,7 +211,7 @@ class QRExtractorApp:
 
     def _load_logo(self, label: ttk.Label) -> None:
         if not LOGO_PATH.exists():
-            label.configure(text="logo.png")
+            label.configure(text="static/logo.png")
             return
 
         try:
@@ -210,7 +220,7 @@ class QRExtractorApp:
             self._logo_image = ImageTk.PhotoImage(image)
             label.configure(image=self._logo_image)
         except Exception:
-            label.configure(text="logo.png")
+            label.configure(text="static/logo.png")
 
     def _browse_root_folder(self) -> None:
         directory = filedialog.askdirectory()
@@ -270,7 +280,7 @@ class QRExtractorApp:
             self._ensure_writable_directory(log_dir)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             log_path = log_dir / f"extraction_log_{timestamp}.txt"
-            
+
             log_handlers = self._setup_run_logging(log_path)
 
             logger = logging.getLogger("qr_gui")
@@ -522,7 +532,7 @@ class QRExtractorApp:
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         default_name = f"QR_Extraction_Result_{timestamp}.xlsx"
-        
+
         filepath = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
             initialfile=default_name,
@@ -537,9 +547,7 @@ class QRExtractorApp:
             write_excel(Path(filepath), self.extracted_data)
             messagebox.showinfo("Thành công", f"Đã lưu kết quả tại:\n{filepath}")
         except Exception as exc:
-            messagebox.showerror(
-                "Lỗi", f"Không thể lưu file Excel.\nChi tiết:\n{exc}"
-            )
+            messagebox.showerror("Lỗi", f"Không thể lưu file Excel.\nChi tiết:\n{exc}")
 
     def _on_close(self) -> None:
         if self.worker_thread and self.worker_thread.is_alive():
