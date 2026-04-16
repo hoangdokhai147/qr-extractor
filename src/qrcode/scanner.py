@@ -6,7 +6,14 @@ from typing import Tuple
 import cv2
 import numpy as np
 from PIL import Image
-from pyzbar.pyzbar import decode as pyzbar_decode
+
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+
+    PYZBAR_IMPORT_ERROR = None
+except ImportError as exc:
+    pyzbar_decode = None
+    PYZBAR_IMPORT_ERROR = exc
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +66,9 @@ def _parse_qr_bytes(raw_bytes: bytes) -> str:
 
 def _scan_with_pyzbar(img_arr: np.ndarray) -> str | None:
     """Scan with standard pyzbar as fallback."""
+    if pyzbar_decode is None:
+        return None
+
     try:
         codes = pyzbar_decode(Image.fromarray(img_arr))
         if codes:
@@ -70,6 +80,12 @@ def _scan_with_pyzbar(img_arr: np.ndarray) -> str | None:
 
 class QRScanner:
     def __init__(self):
+        if PYZBAR_IMPORT_ERROR is not None:
+            logger.warning(
+                "pyzbar is unavailable: %s. Pyzbar fallback will be disabled.",
+                PYZBAR_IMPORT_ERROR,
+            )
+
         try:
             self.wechat = get_wechat_detector()
             logger.info("WeChatQRCode AI detector loaded successfully!")
@@ -162,6 +178,9 @@ class QRScanner:
 
     def _try_pyzbar_strategies(self, gray: np.ndarray) -> str | None:
         """Fallback to original PyZbar pipeline for weird edge cases."""
+        if pyzbar_decode is None:
+            return None
+
         # Baseline native try
         rgb_approx = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
         ans = _scan_with_pyzbar(rgb_approx)
