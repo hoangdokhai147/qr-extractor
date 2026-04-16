@@ -9,3 +9,8 @@ __pycache__
 
 /agent-instructions
 /wechat_qr_models
+
+# PyInstaller
+build/
+dist/
+*.spec
