@@ -1,6 +1,6 @@
 # 📷 QR Code Extractor
 
-A production-ready Python CLI tool that **batch-reads QR codes from device images**, then exports a structured **Excel report** with per-folder summaries and per-file details — ready to be dropped into any data pipeline or operations workflow.
+A production-ready Python tool providing both a **Command Line Interface (CLI)** and a **Graphical User Interface (GUI)**. It **batch-reads QR codes from device images** and exports a structured **Excel report** with per-folder summaries and per-file details — ready to be dropped into any data pipeline or operations workflow.
 
 ---
 
@@ -14,9 +14,10 @@ A production-ready Python CLI tool that **batch-reads QR codes from device image
   - [Windows](#windows)
 - [Project Structure](#project-structure)
 - [Usage](#usage)
-  - [Basic](#basic)
-  - [All Options](#all-options)
-  - [Examples](#examples)
+  - [GUI (Graphical User Interface)](#gui-graphical-user-interface)
+  - [CLI Basic](#cli-basic)
+  - [CLI All Options](#cli-all-options)
+  - [CLI Examples](#cli-examples)
 - [Expected Input Layout](#expected-input-layout)
 - [Output Format](#output-format)
 - [Behavior & Edge Cases](#behavior--edge-cases)
@@ -30,6 +31,7 @@ A production-ready Python CLI tool that **batch-reads QR codes from device image
 
 | Capability | Detail |
 |---|---|
+| 🖥️ UI / UX | Clean Tkinter GUI to preview extracted data streams before exporting |
 | 🗂️ Batch processing | Scans every subfolder inside a root directory |
 | 🤖 AI-Powered Decode | Runs `WeChatQRCode` AI models to read highly-reflective tiny tags! |
 | 🔎 Comprehensive fallback | Uses advanced blob tracing, upscaling, rotations, and standard `pyzbar` |
@@ -125,6 +127,7 @@ pip install -r requirements.txt
 
 ```
 qr-extractor/
+├── app.py               # Graphical User Interface (Tkinter)
 ├── main.py              # Command line interface & orchestrator
 ├── requirements.txt     # Python dependencies
 ├── README.md            # This file
@@ -143,7 +146,22 @@ qr-extractor/
 
 ## Usage
 
-### Basic
+### GUI (Graphical User Interface)
+
+You can launch the visual app for an interactive experience:
+
+```bash
+python app.py
+```
+
+**GUI Workflow:**
+1. **Select Input Target:** Click **Browse** next to "Thư mục chứa ảnh" to select your root image folder.
+2. **Scan Process:** Click **Bắt đầu quét** to start tracing. Real-time extraction logs and decoded results will populate the on-screen table. The results are initially kept in memory without generating loose files.
+3. **Manual Export:** Once processing is complete, click the **Xuất Excel** button. A system file picker dialog will prompt you to choose the exact location and filename to save your `.xlsx` generated report.
+
+---
+
+### CLI Basic
 
 ```bash
 python main.py --root ./raw_images
@@ -153,7 +171,7 @@ Produces a timestamped Excel file (e.g., `qr_results_20250313_143022.xlsx`) in t
 
 ---
 
-### All Options
+### CLI All Options
 
 ```
 python main.py [--root DIR] [--output FILE] [--verbose]
@@ -170,7 +188,7 @@ Optional:
 
 ---
 
-### Examples
+### CLI Examples
 
 ```bash
 # Standard run — timestamped output
