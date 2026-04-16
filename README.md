@@ -93,7 +93,7 @@ pip install -r requirements.txt
 sudo apt-get update && sudo apt-get install -y libzbar0
 
 # 2. Clone and set up
-git clone https://github.com/your-org/qr-extractor.git
+git clone https://github.com/hoangdokhai147/qr-extractor.git
 cd qr-extractor
 python3 -m venv .venv
 source .venv/bin/activate
@@ -112,7 +112,7 @@ choco install zbar
 #        and add it to your PATH or place it next to qr_extractor.py
 
 # 2. Clone and set up
-git clone https://github.com/your-org/qr-extractor.git
+git clone https://github.com/hoangdokhai147/qr-extractor.git
 cd qr-extractor
 python -m venv .venv
 .venv\Scripts\activate
