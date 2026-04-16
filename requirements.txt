@@ -1,0 +1,5 @@
+opencv-contrib-python
+pyzbar
+pandas
+openpyxl
+Pillow

@@ -1,0 +1,11 @@
+.venv
+
+/test
+/raw_images
+/output
+
+__pycache__
+.DS_Store
+
+/agent-instructions
+/wechat_qr_models
