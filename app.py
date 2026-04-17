@@ -177,29 +177,46 @@ class QRExtractorApp:
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
 
-        columns = ("stt", "folder", "file_name", "qr_content", "status")
+        columns = (
+            "stt", "folder", "file_name", "qr_content", 
+            "col1", "col2", "col3", "col4", "col5", "col6", 
+            "status"
+        )
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         headings = {
             "stt": "STT",
             "folder": "Folder",
             "file_name": "File name",
             "qr_content": "QR content",
+            "col1": "Mã (Dòng 1)",
+            "col2": "TÊN DỰ ÁN",
+            "col3": "TÊN CỘT",
+            "col4": "KIỆN SỐ",
+            "col5": "SỐ CHI TIẾT",
+            "col6": "KL TĨNH",
             "status": "Status",
         }
         widths = {
             "stt": 40,
-            "folder": 150,
-            "file_name": 200,
-            "qr_content": 300,
-            "status": 80,
+            "folder": 100,
+            "file_name": 150,
+            "qr_content": 220,
+            "col1": 100,
+            "col2": 150,
+            "col3": 100,
+            "col4": 80,
+            "col5": 80,
+            "col6": 80,
+            "status": 70,
         }
         for column_id in columns:
             self.tree.heading(column_id, text=headings[column_id])
             self.tree.column(
                 column_id,
                 width=widths[column_id],
+                minwidth=widths[column_id],
                 anchor="w",
-                stretch=column_id != "stt",
+                stretch=False,
             )
 
         tree_vsb = ttk.Scrollbar(
@@ -554,6 +571,12 @@ class QRExtractorApp:
                 data["folder"],
                 data["file_name"],
                 data["qr_content"],
+                data["col1"],
+                data["TEN DU AN"],
+                data["TEN COT"],
+                data["KIEN SO"],
+                data["SO CHI TIET"],
+                data["KL TINH"],
                 data["status"],
             ),
         )
