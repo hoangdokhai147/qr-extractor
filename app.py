@@ -178,9 +178,17 @@ class QRExtractorApp:
         table_frame.rowconfigure(0, weight=1)
 
         columns = (
-            "stt", "folder", "file_name", "qr_content", 
-            "col1", "col2", "col3", "col4", "col5", "col6", 
-            "status"
+            "stt",
+            "folder",
+            "file_name",
+            "qr_content",
+            "col1",
+            "col2",
+            "col3",
+            "col4",
+            "col5",
+            "col6",
+            "status",
         )
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         headings = {
@@ -397,11 +405,11 @@ class QRExtractorApp:
                     "file_name": image_path.name,
                     "qr_content": qr_content,
                     "col1": col1,
-                    "TEN DU AN": col2,
-                    "TEN COT": col3,
-                    "KIEN SO": col4,
-                    "SO CHI TIET": col5,
-                    "KL TINH": col6,
+                    "ten_du_an": col2,
+                    "ten_cot": col3,
+                    "kien_so": col4,
+                    "so_chi_tiet": col5,
+                    "kl_tinh": col6,
                     "status": status,
                 }
                 details.append(row_data)
@@ -572,11 +580,11 @@ class QRExtractorApp:
                 data["file_name"],
                 data["qr_content"],
                 data["col1"],
-                data["TEN DU AN"],
-                data["TEN COT"],
-                data["KIEN SO"],
-                data["SO CHI TIET"],
-                data["KL TINH"],
+                data["ten_du_an"],
+                data["ten_cot"],
+                data["kien_so"],
+                data["so_chi_tiet"],
+                data["kl_tinh"],
                 data["status"],
             ),
         )
