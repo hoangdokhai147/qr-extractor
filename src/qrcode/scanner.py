@@ -90,8 +90,8 @@ def _scan_with_pyzbar(img_arr: np.ndarray) -> str | None:
 
 
 class QRScanner:
-    def __init__(self):
-        if PYZBAR_IMPORT_ERROR is not None:
+    def __init__(self, silent: bool = False):
+        if not silent and PYZBAR_IMPORT_ERROR is not None:
             logger.warning(
                 "pyzbar tải không thành công: %s. Pyzbar fallback sẽ bị vô hiệu.",
                 PYZBAR_IMPORT_ERROR,
@@ -99,11 +99,13 @@ class QRScanner:
 
         try:
             self.wechat = get_wechat_detector()
-            logger.info("WeChatQRCode AI detector tải thành công!")
+            if not silent:
+                logger.info("WeChatQRCode AI detector tải thành công!")
         except Exception as e:
-            logger.warning(
-                "Khởi tạo WeChatQRCode thất bại: %s. Sử dụng pyzbar fallback.", e
-            )
+            if not silent:
+                logger.warning(
+                    "Khởi tạo WeChatQRCode thất bại: %s. Sử dụng pyzbar fallback.", e
+                )
             self.wechat = None
 
     def scan_image(self, image_path: Path) -> Tuple[str, str]:

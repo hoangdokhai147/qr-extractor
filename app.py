@@ -350,12 +350,11 @@ class QRExtractorApp:
         log_handlers: list[logging.Handler] = []
         active_output_dir: Path | None = None
         new_excel_path: Path | None = None
-
         try:
-            active_output_dir, new_excel_path, log_path, output_warning = (
+            active_output_dir, new_excel_path, output_warning = (
                 self._resolve_output_targets(root_dir, requested_output_dir)
             )
-            log_handlers = self._setup_run_logging(log_path)
+            log_handlers = self._setup_run_logging()
 
             logger = logging.getLogger("qr_gui")
             logger.info("Bắt đầu quét thư mục: %s", root_dir)
@@ -364,9 +363,10 @@ class QRExtractorApp:
 
             logger.info("Tìm thấy %d file ảnh.", total_images)
 
-            scanner = QRScanner()
-            folders_data: list[dict] = []
+            # Khởi tạo 1 Mẫu gốc để đảm bảo Model AI đã tải vào đĩa (Chống crash tải đè ảnh)
+            _init_scanner = QRScanner()
 
+            folders_data: list[dict] = []
             folder_name = root_dir.name
             reading_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             image_files = get_image_files(root_dir)
@@ -375,12 +375,18 @@ class QRExtractorApp:
             success_total = 0
             fail_total = 0
 
-            for image_path in image_files:
-                qr_content, status = scanner.scan_image(image_path)
-                if status == "success":
-                    success_total += 1
-                else:
-                    fail_total += 1
+            import concurrent.futures
+
+            thread_local = threading.local()
+
+            def get_local_scanner() -> QRScanner:
+                if not hasattr(thread_local, "scanner"):
+                    thread_local.scanner = QRScanner(silent=True)
+                return thread_local.scanner
+
+            def process_image(img_path: Path) -> dict:
+                local_scanner = get_local_scanner()
+                qr_content, status = local_scanner.scan_image(img_path)
 
                 col1 = col2 = col3 = col4 = col5 = col6 = ""
                 if qr_content:
@@ -400,9 +406,9 @@ class QRExtractorApp:
                     if len(lines) > 5:
                         col6 = lines[5].replace("KL TINH:", "").strip()
 
-                row_data = {
+                return {
                     "folder": folder_name,
-                    "file_name": image_path.name,
+                    "file_name": img_path.name,
                     "qr_content": qr_content,
                     "col1": col1,
                     "ten_du_an": col2,
@@ -412,8 +418,30 @@ class QRExtractorApp:
                     "kl_tinh": col6,
                     "status": status,
                 }
-                details.append(row_data)
-                self.event_queue.put(("row", row_data))
+
+            cpu_cores = os.cpu_count() or 4
+            max_workers = min(12, cpu_cores + 2)
+            # logger.info("Kích hoạt Quét Đa Luồng (Multi-threading) với %d Workers", max_workers)
+
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as executor:
+                future_to_path = {
+                    executor.submit(process_image, path): path for path in image_files
+                }
+
+                for future in concurrent.futures.as_completed(future_to_path):
+                    row_data = future.result()
+                    details.append(row_data)
+                    self.event_queue.put(("row", row_data))
+
+                    if row_data["status"] == "success":
+                        success_total += 1
+                    else:
+                        fail_total += 1
+
+            # Sắp xếp lại log Excel nguyên vẹn theo đúng thứ tự ABC
+            details.sort(key=lambda x: x["file_name"])
 
             folders_data.append(
                 {
@@ -467,7 +495,7 @@ class QRExtractorApp:
 
     def _resolve_output_targets(
         self, root_dir: Path, requested_output_dir: Path
-    ) -> tuple[Path, Path, Path, str | None]:
+    ) -> tuple[Path, Path, str | None]:
         requested_output_dir = requested_output_dir.expanduser()
 
         if self._ensure_writable_directory(requested_output_dir):
@@ -483,12 +511,11 @@ class QRExtractorApp:
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         excel_path = active_output_dir / f"QR_Extraction_Result_{timestamp}.xlsx"
-        log_path = active_output_dir / "extraction_log.txt"
 
         if requested_output_dir == root_dir and warning is None:
             active_output_dir = root_dir
 
-        return active_output_dir, excel_path, log_path, warning
+        return active_output_dir, excel_path, warning
 
     def _ensure_writable_directory(self, directory: Path) -> bool:
         try:
@@ -499,17 +526,13 @@ class QRExtractorApp:
         except Exception:
             return False
 
-    def _setup_run_logging(self, log_path: Path) -> list[logging.Handler]:
+    def _setup_run_logging(self) -> list[logging.Handler]:
         formatter = logging.Formatter("[%(asctime)s] %(message)s", "%H:%M:%S")
         handlers: list[logging.Handler] = []
 
         queue_handler = QueueLogHandler(self.event_queue)
         queue_handler.setFormatter(formatter)
         handlers.append(queue_handler)
-
-        file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
-        file_handler.setFormatter(formatter)
-        handlers.append(file_handler)
 
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.INFO)
