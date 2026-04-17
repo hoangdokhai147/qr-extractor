@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import List, Dict
 import pandas as pd
 
+
 def write_excel(output_path: Path, folders_data: List[Dict]) -> None:
     """Write summary and detail tables to a single Excel sheet.
 
@@ -28,12 +29,28 @@ def write_excel(output_path: Path, folders_data: List[Dict]) -> None:
     for fd in folders_data:
         detail_rows.extend(fd["details"])
 
-    detail_df = pd.DataFrame(detail_rows, columns=["folder", "file_name", "qr_content", "status"])
+    detail_df = pd.DataFrame(
+        detail_rows,
+        columns=[
+            "folder",
+            "file_name",
+            "qr_content",
+            "col1",
+            "TEN DU AN",
+            "TEN COT",
+            "KIEN SO",
+            "SO CHI TIET",
+            "KL TINH",
+            "status",
+        ],
+    )
 
     with pd.ExcelWriter(str(output_path), engine="openpyxl") as writer:
         summary_df.to_excel(writer, sheet_name="QR_Results", index=False, startrow=0)
         detail_start_row = len(summary_df) + 2
-        detail_df.to_excel(writer, sheet_name="QR_Results", index=False, startrow=detail_start_row)
+        detail_df.to_excel(
+            writer, sheet_name="QR_Results", index=False, startrow=detail_start_row
+        )
 
         worksheet = writer.sheets["QR_Results"]
         for column_cells in worksheet.columns:

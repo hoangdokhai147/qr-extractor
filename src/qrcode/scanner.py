@@ -17,7 +17,7 @@ except ImportError as exc:
 
 logger = logging.getLogger(__name__)
 
-# Lưu model vào thư mục người dùng (vd: C:\Users\YourName\.qr_extractor\...) 
+# Lưu model vào thư mục người dùng (vd: C:\Users\YourName\.qr_extractor\...)
 # Tránh dùng Path(__file__) vì khi đóng gói thành exe, nó trỏ vào thư mục tạm và bị xoá khi tắt app
 MODELS_DIR = Path.home() / ".qr_extractor" / "wechat_qr_models"
 BASE_URL = "https://raw.githubusercontent.com/WeChatCV/opencv_3rdparty/wechat_qrcode/"
@@ -35,7 +35,16 @@ def ensure_models_downloaded() -> bool:
             url = BASE_URL + filename
             logger.info("Downloading WeChat QR model: %s", filename)
             try:
-                urllib.request.urlretrieve(url, filepath)
+                import ssl
+
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                with (
+                    urllib.request.urlopen(url, context=ctx) as response,
+                    open(filepath, "wb") as out_file,
+                ):
+                    out_file.write(response.read())
             except Exception as e:
                 logger.error("Failed to download model %s: %s", filename, e)
                 return False
@@ -84,16 +93,16 @@ class QRScanner:
     def __init__(self):
         if PYZBAR_IMPORT_ERROR is not None:
             logger.warning(
-                "pyzbar is unavailable: %s. Pyzbar fallback will be disabled.",
+                "pyzbar tải không thành công: %s. Pyzbar fallback sẽ bị vô hiệu.",
                 PYZBAR_IMPORT_ERROR,
             )
 
         try:
             self.wechat = get_wechat_detector()
-            logger.info("WeChatQRCode AI detector loaded successfully!")
+            logger.info("WeChatQRCode AI detector tải thành công!")
         except Exception as e:
             logger.warning(
-                "Could not initialize WeChatQRCode: %s. Using pyzbar fallback.", e
+                "Khởi tạo WeChatQRCode thất bại: %s. Sử dụng pyzbar fallback.", e
             )
             self.wechat = None
 
