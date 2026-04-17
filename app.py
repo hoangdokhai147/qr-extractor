@@ -193,20 +193,27 @@ class QRExtractorApp:
             "fail": "Failed",
         }
         widths = {
-            "folder": 150,
-            "date": 180,
-            "total": 120,
-            "success": 120,
-            "fail": 120,
+            "folder": 100,  
+            "date": 125,    
+            "total": 75,
+            "success": 100,
+            "fail": 100,
+        }
+        minwidths = {
+            "folder": 80,
+            "date": 100,
+            "total": 60,
+            "success": 80,
+            "fail": 80,
         }
         for column_id in columns:
             self.tree.heading(column_id, text=headings[column_id])
             self.tree.column(
                 column_id,
                 width=widths[column_id],
-                minwidth=widths[column_id],
+                minwidth=minwidths[column_id],
                 anchor="w",
-                stretch=False,
+                stretch=True,
             )
 
         tree_vsb = ttk.Scrollbar(
