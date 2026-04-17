@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 
 try:
+    from pyzbar.pyzbar import ZBarSymbol
     from pyzbar.pyzbar import decode as pyzbar_decode
 
     PYZBAR_IMPORT_ERROR = None
@@ -81,7 +82,7 @@ def _scan_with_pyzbar(img_arr: np.ndarray) -> str | None:
         return None
 
     try:
-        codes = pyzbar_decode(Image.fromarray(img_arr))
+        codes = pyzbar_decode(Image.fromarray(img_arr), symbols=[ZBarSymbol.QRCODE])
         if codes:
             return "; ".join(_parse_qr_bytes(c.data) for c in codes)
     except Exception:
