@@ -5,16 +5,6 @@ from typing import Tuple
 
 import cv2
 import numpy as np
-from PIL import Image
-
-try:
-    from pyzbar.pyzbar import ZBarSymbol
-    from pyzbar.pyzbar import decode as pyzbar_decode
-
-    PYZBAR_IMPORT_ERROR = None
-except ImportError as exc:
-    pyzbar_decode = None
-    PYZBAR_IMPORT_ERROR = exc
 
 logger = logging.getLogger(__name__)
 
@@ -68,49 +58,22 @@ def get_wechat_detector():
     return detector
 
 
-def _parse_qr_bytes(raw_bytes: bytes) -> str:
-    """Safely decode pyzbar bytes to str (UTF-8 priority)."""
-    try:
-        return raw_bytes.decode("utf-8")
-    except UnicodeDecodeError:
-        return raw_bytes.decode("latin-1")
-
-
-def _scan_with_pyzbar(img_arr: np.ndarray) -> str | None:
-    """Scan with standard pyzbar as fallback."""
-    if pyzbar_decode is None:
-        return None
-
-    try:
-        codes = pyzbar_decode(Image.fromarray(img_arr), symbols=[ZBarSymbol.QRCODE])
-        if codes:
-            return "; ".join(_parse_qr_bytes(c.data) for c in codes)
-    except Exception:
-        pass
-    return None
-
 
 class QRScanner:
     def __init__(self, silent: bool = False):
-        if not silent and PYZBAR_IMPORT_ERROR is not None:
-            logger.warning(
-                "pyzbar tải không thành công: %s. Pyzbar fallback sẽ bị vô hiệu.",
-                PYZBAR_IMPORT_ERROR,
-            )
-
         try:
             self.wechat = get_wechat_detector()
             if not silent:
                 logger.info("WeChatQRCode AI detector tải thành công!")
         except Exception as e:
             if not silent:
-                logger.warning(
-                    "Khởi tạo WeChatQRCode thất bại: %s. Sử dụng pyzbar fallback.", e
+                logger.error(
+                    "Khởi tạo WeChatQRCode thất bại: %s", e
                 )
             self.wechat = None
 
     def scan_image(self, image_path: Path) -> Tuple[str, str]:
-        """Reads image and performs multi-strategy detection.
+        """Reads image and performs multi-strategy detection with WeChatQRCode.
         Returns: (decoded_text, status) where status is "success" or "fail".
         """
         img = cv2.imread(str(image_path))
@@ -119,12 +82,6 @@ class QRScanner:
             return "", "fail"
 
         result = self._try_wechat_strategies(img)
-        if result:
-            return result, "success"
-
-        # If WeChat completely fails, try standard PyZbar multi-strategy
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        result = self._try_pyzbar_strategies(gray)
         if result:
             return result, "success"
 
@@ -190,38 +147,4 @@ class QRScanner:
 
         return None
 
-    def _try_pyzbar_strategies(self, gray: np.ndarray) -> str | None:
-        """Fallback to original PyZbar pipeline for weird edge cases."""
-        if pyzbar_decode is None:
-            return None
 
-        # Baseline native try
-        rgb_approx = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
-        ans = _scan_with_pyzbar(rgb_approx)
-        if ans:
-            return ans
-
-        # Upscales
-        for scale in [2, 3]:
-            scaled = cv2.resize(
-                gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC
-            )
-            ans = _scan_with_pyzbar(scaled)
-            if ans:
-                return ans
-
-            # Rotations
-            for k in [1, 2, 3]:
-                ans = _scan_with_pyzbar(np.rot90(scaled, k=k))
-                if ans:
-                    return ans
-
-            # Adaptive threshold
-            adap = cv2.adaptiveThreshold(
-                scaled, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-            )
-            ans = _scan_with_pyzbar(adap)
-            if ans:
-                return ans
-
-        return None

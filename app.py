@@ -178,44 +178,26 @@ class QRExtractorApp:
         table_frame.rowconfigure(0, weight=1)
 
         columns = (
-            "stt",
             "folder",
-            "file_name",
-            "qr_content",
-            "col1",
-            "col2",
-            "col3",
-            "col4",
-            "col5",
-            "col6",
-            "status",
+            "date",
+            "total",
+            "success",
+            "fail",
         )
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         headings = {
-            "stt": "STT",
             "folder": "Folder",
-            "file_name": "File name",
-            "qr_content": "QR content",
-            "col1": "Mã (Dòng 1)",
-            "col2": "TÊN DỰ ÁN",
-            "col3": "TÊN CỘT",
-            "col4": "KIỆN SỐ",
-            "col5": "SỐ CHI TIẾT",
-            "col6": "KL TĨNH",
-            "status": "Status",
+            "date": "Date",
+            "total": "Total file",
+            "success": "Success",
+            "fail": "Failed",
         }
         widths = {
-            "stt": 40,
-            "folder": 100,
-            "file_name": 150,
-            "qr_content": 220,
-            "col1": 100,
-            "col2": 150,
-            "col3": 100,
-            "col4": 80,
-            "col5": 80,
-            "col6": 80,
-            "status": 70,
+            "folder": 150,
+            "date": 180,
+            "total": 120,
+            "success": 120,
+            "fail": 120,
         }
         for column_id in columns:
             self.tree.heading(column_id, text=headings[column_id])
@@ -277,6 +259,8 @@ class QRExtractorApp:
         directory = filedialog.askdirectory()
         if directory:
             self.root_dir_var.set(directory)
+            # Auto-fill output directory with the same folder
+            self.output_dir_var.set(directory)
 
     def _browse_output_folder(self) -> None:
         directory = filedialog.askdirectory()
@@ -320,9 +304,11 @@ class QRExtractorApp:
             return
 
         output_input = self.output_dir_var.get().strip()
-        requested_output_dir = (
-            Path(output_input).expanduser() if output_input else root_dir
-        )
+        req_path = Path(output_input).expanduser() if output_input else root_dir
+        if req_path.suffix.lower() == ".xlsx" and req_path.is_file():
+            requested_output_dir = req_path.parent
+        else:
+            requested_output_dir = req_path
 
         self.processed_count = 0
         self.extracted_data = []
@@ -375,18 +361,22 @@ class QRExtractorApp:
             success_total = 0
             fail_total = 0
 
+            self.event_queue.put(
+                (
+                    "init_tree",
+                    {
+                        "folder": folder_name,
+                        "date": reading_date,
+                        "total": total_images,
+                    },
+                )
+            )
+
             import concurrent.futures
 
-            thread_local = threading.local()
-
-            def get_local_scanner() -> QRScanner:
-                if not hasattr(thread_local, "scanner"):
-                    thread_local.scanner = QRScanner(silent=True)
-                return thread_local.scanner
-
             def process_image(img_path: Path) -> dict:
-                local_scanner = get_local_scanner()
-                qr_content, status = local_scanner.scan_image(img_path)
+                scanner = QRScanner(silent=True)
+                qr_content, status = scanner.scan_image(img_path)
 
                 col1 = col2 = col3 = col4 = col5 = col6 = ""
                 if qr_content:
@@ -420,8 +410,8 @@ class QRExtractorApp:
                 }
 
             cpu_cores = os.cpu_count() or 4
-            max_workers = min(12, cpu_cores + 2)
-            # logger.info("Kích hoạt Quét Đa Luồng (Multi-threading) với %d Workers", max_workers)
+            # Tối ưu: Dùng nhiều worker hơn cho I/O-bound tasks
+            max_workers = min(cpu_cores * 3, 16)
 
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=max_workers
@@ -430,15 +420,24 @@ class QRExtractorApp:
                     executor.submit(process_image, path): path for path in image_files
                 }
 
+                batch_size = max(1, len(image_files) // 20)  # Update mỗi 5% progress
+                batch_count = 0
+                
                 for future in concurrent.futures.as_completed(future_to_path):
                     row_data = future.result()
                     details.append(row_data)
-                    self.event_queue.put(("row", row_data))
-
                     if row_data["status"] == "success":
                         success_total += 1
                     else:
                         fail_total += 1
+
+                    batch_count += 1
+                    # Batch updates để giảm UI bottleneck
+                    if batch_count >= batch_size or (success_total + fail_total) == total_images:
+                        self.event_queue.put(
+                            ("progress", {"success": success_total, "fail": fail_total})
+                        )
+                        batch_count = 0
 
             # Sắp xếp lại log Excel nguyên vẹn theo đúng thứ tự ABC
             details.sort(key=lambda x: x["file_name"])
@@ -556,8 +555,10 @@ class QRExtractorApp:
 
             if event_type == "log":
                 self._append_log(payload)
-            elif event_type == "row":
-                self._append_result_row(payload)
+            elif event_type == "init_tree":
+                self._init_tree_row(payload)
+            elif event_type == "progress":
+                self._update_progress_row(payload)
             elif event_type == "done":
                 self._handle_run_finished(payload)
 
@@ -586,31 +587,44 @@ class QRExtractorApp:
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
 
-    def _append_result_row(self, data: dict) -> None:
+    def _init_tree_row(self, data: dict) -> None:
         assert self.tree is not None
+        self.processed_count = 0
+        self.tree_item_id = self.tree.insert(
+            "",
+            "end",
+            values=(
+                data["folder"],
+                data["date"],
+                data["total"],
+                0,
+                0,
+            ),
+        )
 
-        self.processed_count += 1
+    def _update_progress_row(self, data: dict) -> None:
+        assert self.tree is not None
+        
+        # Set processed_count based on actual success + fail count (batch updates)
+        success_count = data.get("success", 0)
+        fail_count = data.get("fail", 0)
+        self.processed_count = success_count + fail_count
 
         if self.progress_bar is not None:
             self.progress_bar["value"] = self.processed_count
 
-        self.tree.insert(
-            "",
-            "end",
-            values=(
-                self.processed_count,
-                data["folder"],
-                data["file_name"],
-                data["qr_content"],
-                data["col1"],
-                data["ten_du_an"],
-                data["ten_cot"],
-                data["kien_so"],
-                data["so_chi_tiet"],
-                data["kl_tinh"],
-                data["status"],
-            ),
-        )
+        if hasattr(self, "tree_item_id"):
+            curr = self.tree.item(self.tree_item_id, "values")
+            self.tree.item(
+                self.tree_item_id,
+                values=(
+                    curr[0],
+                    curr[1],
+                    curr[2],
+                    success_count,
+                    fail_count,
+                ),
+            )
 
     def _handle_run_finished(self, payload: dict) -> None:
         self._set_running_state(False)
