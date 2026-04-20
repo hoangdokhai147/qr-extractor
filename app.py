@@ -263,14 +263,28 @@ class QRExtractorApp:
             label.configure(text="static/logo.png")
 
     def _browse_root_folder(self) -> None:
-        directory = filedialog.askdirectory()
+        current = self.root_dir_var.get().strip()
+        kw = {"initialdir": current} if current and Path(current).exists() else {}
+        directory = filedialog.askdirectory(**kw)
+        
         if directory:
             self.root_dir_var.set(directory)
             # Auto-fill output directory with the same folder
             self.output_dir_var.set(directory)
 
     def _browse_output_folder(self) -> None:
-        directory = filedialog.askdirectory()
+        current_out = self.output_dir_var.get().strip()
+        current_in = self.root_dir_var.get().strip()
+        
+        initial_dir = None
+        if current_out and Path(current_out).exists():
+            initial_dir = current_out
+        elif current_in and Path(current_in).exists():
+            initial_dir = current_in
+            
+        kw = {"initialdir": initial_dir} if initial_dir else {}
+        directory = filedialog.askdirectory(**kw)
+        
         if directory:
             self.output_dir_var.set(directory)
 
