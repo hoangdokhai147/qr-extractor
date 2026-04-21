@@ -11,6 +11,9 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 from PIL import Image, ImageTk
+import cv2
+
+import concurrent.futures
 
 from src.io.excel_writer import write_excel
 from src.io.file_utils import get_image_files
@@ -48,6 +51,9 @@ class QueueLogHandler(logging.Handler):
 
 class QRExtractorApp:
     def __init__(self, root: tk.Tk):
+
+        cv2.setNumThreads(1)  # Giảm thiểu bottleneck do OpenCV sử dụng nhiều thread
+
         self.root = root
         self.root.title(APP_TITLE)
         self.root.geometry("1240x760")
@@ -55,6 +61,12 @@ class QRExtractorApp:
 
         self.event_queue: queue.Queue = queue.Queue()
         self.worker_thread: threading.Thread | None = None
+        self.thread_local = threading.local()
+
+        cpu_cores = os.cpu_count() or 4
+        self.max_workers = min(cpu_cores * 3, 16)  # Tối ưu cho I/O-bound tasks
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
+
         self.extracted_data: list[dict] = []
         self.processed_count = 0
         self.last_excel_path: Path | None = None
@@ -393,18 +405,15 @@ class QRExtractorApp:
                 )
             )
 
-            import concurrent.futures
-
-            thread_local = threading.local()
-
-            def get_local_scanner() -> QRScanner:
-                if not hasattr(thread_local, "scanner"):
-                    thread_local.scanner = QRScanner(silent=True)
-                return thread_local.scanner
-
             def process_image(img_path: Path) -> dict:
-                scanner = get_local_scanner()
-                qr_content, status = scanner.scan_image(img_path)
+                qr_content, status = "", "fail"
+                try:
+                    if not hasattr(self.thread_local, "scanner"):
+                        self.thread_local.scanner = QRScanner(silent=True)
+                    scanner = self.thread_local.scanner
+                    qr_content, status = scanner.scan_image(image_path=img_path)
+                except Exception as exc:
+                    logging.getLogger("qr_gui").error(f"Không thể quét file {img_path.name}: {exc}")
 
                 col1 = col2 = col3 = col4 = col5 = col6 = ""
                 if qr_content:
