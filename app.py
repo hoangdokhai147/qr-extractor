@@ -395,8 +395,15 @@ class QRExtractorApp:
 
             import concurrent.futures
 
+            thread_local = threading.local()
+
+            def get_local_scanner() -> QRScanner:
+                if not hasattr(thread_local, "scanner"):
+                    thread_local.scanner = QRScanner(silent=True)
+                return thread_local.scanner
+
             def process_image(img_path: Path) -> dict:
-                scanner = QRScanner(silent=True)
+                scanner = get_local_scanner()
                 qr_content, status = scanner.scan_image(img_path)
 
                 col1 = col2 = col3 = col4 = col5 = col6 = ""
