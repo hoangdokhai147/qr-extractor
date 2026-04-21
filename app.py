@@ -193,8 +193,8 @@ class QRExtractorApp:
             "fail": "Failed",
         }
         widths = {
-            "folder": 100,  
-            "date": 125,    
+            "folder": 100,
+            "date": 125,
             "total": 75,
             "success": 100,
             "fail": 100,
@@ -266,7 +266,7 @@ class QRExtractorApp:
         current = self.root_dir_var.get().strip()
         kw = {"initialdir": current} if current and Path(current).exists() else {}
         directory = filedialog.askdirectory(**kw)
-        
+
         if directory:
             self.root_dir_var.set(directory)
             # Auto-fill output directory with the same folder
@@ -275,16 +275,16 @@ class QRExtractorApp:
     def _browse_output_folder(self) -> None:
         current_out = self.output_dir_var.get().strip()
         current_in = self.root_dir_var.get().strip()
-        
+
         initial_dir = None
         if current_out and Path(current_out).exists():
             initial_dir = current_out
         elif current_in and Path(current_in).exists():
             initial_dir = current_in
-            
+
         kw = {"initialdir": initial_dir} if initial_dir else {}
         directory = filedialog.askdirectory(**kw)
-        
+
         if directory:
             self.output_dir_var.set(directory)
 
@@ -443,7 +443,7 @@ class QRExtractorApp:
 
                 batch_size = max(1, len(image_files) // 20)  # Update mỗi 5% progress
                 batch_count = 0
-                
+
                 for future in concurrent.futures.as_completed(future_to_path):
                     row_data = future.result()
                     details.append(row_data)
@@ -454,7 +454,10 @@ class QRExtractorApp:
 
                     batch_count += 1
                     # Batch updates để giảm UI bottleneck
-                    if batch_count >= batch_size or (success_total + fail_total) == total_images:
+                    if (
+                        batch_count >= batch_size
+                        or (success_total + fail_total) == total_images
+                    ):
                         self.event_queue.put(
                             ("progress", {"success": success_total, "fail": fail_total})
                         )
@@ -625,7 +628,7 @@ class QRExtractorApp:
 
     def _update_progress_row(self, data: dict) -> None:
         assert self.tree is not None
-        
+
         # Set processed_count based on actual success + fail count (batch updates)
         success_count = data.get("success", 0)
         fail_count = data.get("fail", 0)
