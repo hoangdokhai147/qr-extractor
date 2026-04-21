@@ -65,7 +65,9 @@ class QRExtractorApp:
 
         cpu_cores = os.cpu_count() or 4
         self.max_workers = min(cpu_cores * 3, 16)  # Tối ưu cho I/O-bound tasks
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.max_workers
+        )
 
         self.extracted_data: list[dict] = []
         self.processed_count = 0
@@ -413,7 +415,9 @@ class QRExtractorApp:
                     scanner = self.thread_local.scanner
                     qr_content, status = scanner.scan_image(image_path=img_path)
                 except Exception as exc:
-                    logging.getLogger("qr_gui").error(f"Không thể quét file {img_path.name}: {exc}")
+                    logging.getLogger("qr_gui").error(
+                        f"Không thể quét file {img_path.name}: {exc}"
+                    )
 
                 col1 = col2 = col3 = col4 = col5 = col6 = ""
                 if qr_content:
@@ -446,38 +450,32 @@ class QRExtractorApp:
                     "status": status,
                 }
 
-            cpu_cores = os.cpu_count() or 4
-            # Tối ưu: Dùng nhiều worker hơn cho I/O-bound tasks
-            max_workers = min(cpu_cores * 3, 16)
+            # Tái sử dụng executor toàn cục để tránh OS tạo/hủy thread liên tục gây lỗi C++ và làm chậm tiến trình
+            future_to_path = {
+                self.executor.submit(process_image, path): path for path in image_files
+            }
 
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max_workers
-            ) as executor:
-                future_to_path = {
-                    executor.submit(process_image, path): path for path in image_files
-                }
+            batch_size = max(1, len(image_files) // 20)  # Update mỗi 5% progress
+            batch_count = 0
 
-                batch_size = max(1, len(image_files) // 20)  # Update mỗi 5% progress
-                batch_count = 0
+            for future in concurrent.futures.as_completed(future_to_path):
+                row_data = future.result()
+                details.append(row_data)
+                if row_data["status"] == "success":
+                    success_total += 1
+                else:
+                    fail_total += 1
 
-                for future in concurrent.futures.as_completed(future_to_path):
-                    row_data = future.result()
-                    details.append(row_data)
-                    if row_data["status"] == "success":
-                        success_total += 1
-                    else:
-                        fail_total += 1
-
-                    batch_count += 1
-                    # Batch updates để giảm UI bottleneck
-                    if (
-                        batch_count >= batch_size
-                        or (success_total + fail_total) == total_images
-                    ):
-                        self.event_queue.put(
-                            ("progress", {"success": success_total, "fail": fail_total})
-                        )
-                        batch_count = 0
+                batch_count += 1
+                # Batch updates để giảm UI bottleneck
+                if (
+                    batch_count >= batch_size
+                    or (success_total + fail_total) == total_images
+                ):
+                    self.event_queue.put(
+                        ("progress", {"success": success_total, "fail": fail_total})
+                    )
+                    batch_count = 0
 
             # Sắp xếp lại log Excel nguyên vẹn theo đúng thứ tự ABC
             details.sort(key=lambda x: x["file_name"])
